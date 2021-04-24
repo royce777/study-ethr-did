@@ -94,13 +94,13 @@ console.log('Connected');
 // 		});
 // }
 const test = async (accounts) => {
-	did0 = createDid('0x3A87f86a03068b5975d471da0971d4A4de9aE5eC', accounts[0]);
+	did0 = createDid('0x1482aDFDC2A33983EE69F9F8e4F852c467688Ea0', accounts[0]);
 	//await did0.setAttribute('did/pub/Ed25519/veriKey/base64', 'Arl8MN52fwhM4wgBaO4pMFO6M7I11xFqMmPSnxRQk2tx');
 	const ethrDidResolver = getResolver.getResolver(
 		{
 			name: 'test01',
 			rpcUrl: 'http://localhost:9545',
-			registry: '0x3A87f86a03068b5975d471da0971d4A4de9aE5eC'
+			registry: '0x1482aDFDC2A33983EE69F9F8e4F852c467688Ea0'
 		}
 	);
 	const didResolver = new Resolver.Resolver(ethrDidResolver);
@@ -114,9 +114,9 @@ const test = async (accounts) => {
 	//console.log(verification);
 	const jwt = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NkstUiJ9.eyJpYXQiOjE2MTgyNjI0NDIsImNsYWltcyI6eyJuYW1lIjoiUGlwcG8gQmF1ZG8ifSwiaXNzIjoiZGlkOmV0aHI6MHg4RGQyMThERjU1ZDM4MmM4MzRDOTJFRDRGNWYxMjdhQzhBREMwNUZiIn0.ARnH8c-ikRRpzHoLpiDzuacvv4gdMMsG6VZ5Q7DgN3fwJEZ2uEbNbo2vpBtuVtvpL2CBzEEnLqwQcFY6fA9dgQE';
 
-	did1 = createDid('0x3A87f86a03068b5975d471da0971d4A4de9aE5eC', accounts[1]);
+	did1 = createDid('0x1482aDFDC2A33983EE69F9F8e4F852c467688Ea0', accounts[1]);
 
-	const { payload, issuer } = did1.verifyJWT(jwt);
+	const { payload, issuer } = did1.verifyJWT(jwt, didResolver);
 	console.log(` PAYLOAD :
 	${payload}`)
 
