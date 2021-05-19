@@ -3,7 +3,7 @@ import getResolver from 'ethr-did-resolver'
 import {EthrDID} from 'ethr-did'
 import {ethers} from 'ethers'
 import { computePublicKey } from '@ethersproject/signing-key'
-import pkg from 'did-jwt-vc'; 
+import pkg, { verifyCredential } from 'did-jwt-vc'; 
 const { JwtCredentialPayload, createVerifiableCredentialJwt, JwtPresentationPayload, createVerifiablePresentationJwt, verifyPresentation } = pkg;
 import bip39  from 'bip39'
 import { createRequire } from 'module';
@@ -78,8 +78,17 @@ const test = async (accounts) => {
 		}
 		}
 	}
-	const vcJwt = await createVerifiableCredentialJwt(vcPayload, uni);
-	console.log(vcJwt);
+	const options = {
+		header: {
+			"typ": "JWT",
+			"alg": "ES256K-R"
+		  },
+	}
+	const vcJwt = await createVerifiableCredentialJwt(vcPayload, uni, options);
+	// console.log(vcJwt);
+	// const verifiedVC = await verifyCredential(vcJwt, didResolver);
+	// console.log(verifiedVC);
+
 
 	// Paolo Mori must create a Verifiable Presentation in order to present the claim to the library
 	const vpPayload = {
@@ -90,7 +99,7 @@ const test = async (accounts) => {
 		}
 	  }
 	  
-	  const vpJwt = await createVerifiablePresentationJwt(vpPayload, PaoloMori)
+	  const vpJwt = await createVerifiablePresentationJwt(vpPayload, PaoloMori, options)
 	  console.log('\n');
 	  console.log("==== VERIFIABLE PRESENTATION CREATED BY PAOLO MORI =====");
 	  console.log('\n');
@@ -102,6 +111,16 @@ const test = async (accounts) => {
 	  console.log("==== VERIFIABLE PRESENTATION CREATED BY PAOLO MORI IS BEING VERIFIED BY LIBRARY =====");
 	  console.log('\n');
 	  console.log(verifiedVP)
+
+	  console.log('\n');
+	  console.log("==== VERIFIABLE CREDENTIAL ISSUED BY UNIVERSITY TO PAOLO MORI IS BEING VERIFIED BY LIBRARY =====");
+	  console.log('\n');
+	  const unverifiedVC = verifiedVP.verifiablePresentation.verifiableCredential;
+	  console.log(unverifiedVC);
+	//   const verifiedVC = await verifyCredential(unverifiedVC, didResolver);
+	//   console.log(verifiedVC);
+
+
 
 
 }
