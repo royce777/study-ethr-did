@@ -41,12 +41,11 @@ module.exports = {
     // You should run a client (like ganache-cli, geth or parity) in a separate terminal
     // tab if you use this network and you must also set the `host`, `port` and `network_id`
     // options below to some value.
-    //
-    // development: {
-    //  host: "127.0.0.1",     // Localhost (default: none)
-    //  port: 8545,            // Standard Ethereum port (default: none)
-    //  network_id: "*",       // Any network (default: none)
-    // },
+    
+    development: {
+     host: "127.0.0.1",     // Localhost (default: none)
+     port: 7545,            // Standard Ethereum port (default: none)
+     network_id: "*",       // Any network (default: none)
     // Another network with more advanced options...
     // advanced: {
     // port: 8777,             // Custom port
@@ -68,10 +67,10 @@ module.exports = {
     // },
     // Useful for private networks
     // private: {
-    // provider: () => new HDWalletProvider(mnemonic, `https://network.io`),
+    // provider: () => new HDWalletProvider('family dress industry stage bike shrimp replace design author amateur reopen script', `https://network.io`),
     // network_id: 2111,   // This network is yours, in the cloud.
     // production: true    // Treats this network as if it was a public net. (default: false)
-    // }
+     }
   },
 
   // Set default mocha options here, use special reporters etc.

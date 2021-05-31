@@ -3,15 +3,17 @@ import getResolver from 'ethr-did-resolver'
 import { EthrDID } from 'ethr-did'
 import { ethers } from 'ethers'
 import { computePublicKey } from '@ethersproject/signing-key'
-import { ES256KSigner, verifyJWT } from 'did-jwt'
+import { ES256KSigner } from 'did-jwt'
 import pkg, { verifyCredential } from 'did-jwt-vc';
-const { JwtCredentialPayload, createVerifiableCredentialJwt, JwtPresentationPayload, createVerifiablePresentationJwt, verifyPresentation } = pkg;
+const { createVerifiableCredentialJwt, createVerifiablePresentationJwt, verifyPresentation } = pkg;
 import bip39 from 'bip39'
 import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
 var hdkey = require('ethereumjs-wallet/hdkey')
 //import wallet from 'ethereumjs-wallet'
+
+const { performance } = require('perf_hooks'); // performance suite for time measurement
 
 const mnemonic = 'family dress industry stage bike shrimp replace design author amateur reopen script';
 
@@ -34,7 +36,7 @@ const getTrufflePrivateKey = (mnemonic, index) => {
 console.log('Connecting to provider...');
 const Web3HttpProvider = require('web3-providers-http')
 // ...
-const web3provider = new Web3HttpProvider('http://localhost:9545')
+const web3provider = new Web3HttpProvider('http://localhost:7545')
 const provider = new ethers.providers.Web3Provider(web3provider)
 //const provider = new ethers.providers.JsonRpcProvider('http://localhost:9545');
 
@@ -55,11 +57,12 @@ const test = async (accounts) => {
 	// first save old signer function
 	const oldSigner = uni.signer;
 	//create new keypair and publish it to EthrDIDRegistry
-	const keypair = await uni.createSigningDelegate();
+	 const keypair = EthrDID.createKeyPair('0x539');
+	 await uni.setAttribute('did/pub/Secp256k1/veriKey/hex', keypair.publicKey);
+	 uni.signer = ES256KSigner(keypair.privateKey, true);
 
 
 	//now university tries to update its signer function to be able to sign the V-Credential with its new key
-	// uni.signer = ES256KSigner(newKeys.privateKey, true);
 
 	//creating holder and verifier DIDs
 	const PaoloMori = await createDid(RegAddress, accounts[1], 1);
@@ -68,7 +71,7 @@ const test = async (accounts) => {
 	// create the DID resolver 
 	const ethrDidResolver = getResolver.getResolver(
 		{
-			rpcUrl: 'http://localhost:9545',
+			rpcUrl: 'http://localhost:7545',
 			registry: RegAddress,
 			chainId: '0x539',
 			provider
@@ -114,11 +117,10 @@ const researchVCPayload = {
 			"alg": "ES256K-R"
 		},
 	}
-	const vcJwt1 = await createVerifiableCredentialJwt(degreeVCPayload, uni, options);
-	const vcJwt2 = await createVerifiableCredentialJwt(researchVCPayload, uni, options);
-	console.log(vcJwt1);
+	const resDegree = await createVCPerformance(degreeVCPayload, uni, options);
+	const resResearch = await createVCPerformance(researchVCPayload, uni, options);
 	// const verifiedVC = await verifyCredential(vcJwt, didResolver);
-	// console.log(verifiedVC);
+	 console.log(resDegree.res);
 
 
 	// Paolo Mori must create a Verifiable Presentation in order to present the claim to the library
@@ -126,27 +128,27 @@ const researchVCPayload = {
 		vp: {
 			'@context': ['https://www.w3.org/2018/credentials/v1'],
 			type: ['VerifiablePresentation'],
-			verifiableCredential: [vcJwt1]
+			verifiableCredential: [resDegree.res, resResearch.res]
 		}
 	}
 
-	const vpJwt = await createVerifiablePresentationJwt(vpPayload, PaoloMori, options)
+	const resCreateVP = await createVPPerformance(vpPayload, PaoloMori, options)
 	console.log('\n');
 	console.log("==== VERIFIABLE PRESENTATION CREATED BY PAOLO MORI =====");
 	console.log('\n');
-	console.log(vpJwt);
+	console.log(resCreateVP.res);
 
 	// at this point Paolo Mori receives a VP request from library, so he provides the presentation of his VC and the library verifies it
-	const verifiedVP = await verifyPresentation(vpJwt, didResolver)
+	const resVerifyVP = await verifyPresentationPerformance(resCreateVP.res, didResolver)
 	console.log('\n');
 	console.log("==== VERIFIABLE PRESENTATION CREATED BY PAOLO MORI IS BEING VERIFIED BY LIBRARY =====");
 	console.log('\n');
-	console.log(verifiedVP)
+	console.log(resVerifyVP.res)
 
 	console.log('\n');
 	console.log("==== VERIFIABLE CREDENTIAL ISSUED BY UNIVERSITY TO PAOLO MORI IS BEING VERIFIED BY LIBRARY =====");
 	console.log('\n');
-	const unverifiedVC = verifiedVP.payload.vp.verifiableCredential[0];
+	const unverifiedVC = resVerifyVP.res.payload.vp.verifiableCredential[0];
 	console.log('\n');
 	console.log("==== UNVERIFIED VC =====");
 	console.log('\n');
@@ -154,9 +156,16 @@ const researchVCPayload = {
 	console.log('\n');
 	console.log("==== VERIFIED VC =====");
 	console.log('\n');
-	const verifiedVC = await verifyCredential(unverifiedVC, didResolver);
-	console.log(verifiedVC);
-	 console.log(verifiedVC.didResolutionResult.didDocument.verificationMethod);
+	const resVerifyVC = await verifyCredentialPerformance(unverifiedVC, didResolver);
+	console.log(resVerifyVC.res);
+	 console.log(resVerifyVC.res.didResolutionResult.didDocument.verificationMethod);
+
+	 // PRINT PERFORMANCE RESULTS
+	 console.log(resDegree.time);
+	 console.log(resResearch.time);
+	 console.log(resCreateVP.time);
+	 console.log(resVerifyVP.time);
+	 console.log(resVerifyVC.time);
 
 
 
@@ -181,6 +190,37 @@ const createDid = async (RegAddress, accountAddress, index, chainId = '0x539') =
 			return new EthrDID(conf);
 		})
 
+}
+
+const createVCPerformance = async (payload, did, options) => {
+	let start = performance.now();
+	const jwt = await createVerifiableCredentialJwt(payload, did, options);
+	let end = performance.now();
+	const createVCtime = "Create VC took " + (end-start) + "ms"
+	return {res : jwt, time : createVCtime};
+}
+const createVPPerformance =  async (payload, did, options) => {
+	let start = performance.now();
+	const jwt = await createVerifiablePresentationJwt(payload, did, options);
+	let end = performance.now();
+	const createVPtime = "Create VP took " + (end-start) + "ms"
+	return {res : jwt, time : createVPtime} ;
+}
+
+const verifyPresentationPerformance = async (jwt, resolver) => {
+	let start = performance.now();
+	const result = await verifyPresentation(jwt, resolver);
+	let end = performance.now();
+	const verifyVPtime = "Verify VP took " + (end-start) + "ms"
+	return {res : result, time : verifyVPtime};
+}
+
+const verifyCredentialPerformance = async (jwt, resolver) => {
+	let start = performance.now();
+	const result = await verifyCredential(jwt, resolver);
+	let end = performance.now();
+	const verifyVCtime = "Verify VC took " + (end-start) + "ms"
+	return {res : result, time : verifyVCtime} ;
 }
 
 //actual function that starts executing and this will invoke all the other pieces of code
