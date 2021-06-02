@@ -58,11 +58,11 @@ const test = async (accounts) => {
 	// university wants to add a new signing key and publish it to its attributes on the EthrDIDRegistry by creating a signingDelegate
 
 	// first save old signer function
-	const oldSigner = uni.signer;
+	// const oldSigner = uni.signer;
 	//create new keypair and publish it to EthrDIDRegistry
-	 const keypair = EthrDID.createKeyPair('0x539');
-	 await uni.setAttribute('did/pub/Secp256k1/veriKey/hex', keypair.publicKey);
-	 uni.signer = ES256KSigner(keypair.privateKey, true);
+	//  const keypair = EthrDID.createKeyPair('0x539');
+	//  await uni.setAttribute('did/pub/Secp256k1/veriKey/hex', keypair.publicKey);
+	//  uni.signer = ES256KSigner(keypair.privateKey, true);
 
 
 	//now university tries to update its signer function to be able to sign the V-Credential with its new key
@@ -110,7 +110,12 @@ const test = async (accounts) => {
 				degree: {
 					type: hashedDegreeType.res,
 					name: hashedDegreeName.res
+				},
+				researcherAt: {
+					organization: 'CNR',
+					branch: 'SelfSovereignIdentity'
 				}
+
 			}
 		}
 	}
@@ -181,8 +186,8 @@ const test = async (accounts) => {
 	const resVerifyVC = await verifyCredentialPerformance(unverifiedVC, didResolver);
 	const verifiedVC = resVerifyVC.res.verifiableCredential;
 	const verifiedVCs = [verifiedVC];
-	console.log(resVerifyVC.res.verifiableCredential.credentialSubject.degree);
-	console.log(resVerifyVC.res.didResolutionResult.didDocument.verificationMethod);
+	console.log(resVerifyVC.res);
+	// console.log(resVerifyVC.res.didResolutionResult.didDocument.verificationMethod);
 	const disclosedAttributeVerification = verifyAttributes(verifiedVCs, verifiedVP);
 	// PRINT PERFORMANCE RESULTS
 	console.log(resDegree.time);
