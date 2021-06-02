@@ -8,12 +8,15 @@ import pkg, { verifyCredential } from 'did-jwt-vc';
 const { createVerifiableCredentialJwt, createVerifiablePresentationJwt, verifyPresentation } = pkg;
 import bip39 from 'bip39'
 import { createRequire } from 'module';
+import {hashAttributes} from './hashAttributes.js'
+import {verifyAttributes} from './verifyAttributes.js'
 
 const require = createRequire(import.meta.url);
-var hdkey = require('ethereumjs-wallet/hdkey')
+const hdkey = require('ethereumjs-wallet/hdkey')
 //import wallet from 'ethereumjs-wallet'
 
 const { performance } = require('perf_hooks'); // performance suite for time measurement
+
 
 const mnemonic = 'family dress industry stage bike shrimp replace design author amateur reopen script';
 
@@ -80,36 +83,48 @@ const test = async (accounts) => {
 	const didResolver = new Resolver.Resolver(ethrDidResolver);
 
 	// create VC issued by university to Paolo Mori
+	const hashedDegreeType = hashAttributes('MastersDegree');
+	const hashedDegreeName = hashAttributes('Laurea Magistrale in Informatica');
+	const degreeTypeDisclosure = {
+		path : ['degree','type'],
+		clearValue : 'MastersDegree',
+		nonce : hashedDegreeType.nonce
+	}
+	const degreeNameDisclosure = {
+		path : ['degree', 'name'],
+		clearValue : 'Laurea Magistrale in Informatica',
+		nonce : hashedDegreeName.nonce
+	}
 	const degreeVCPayload = {
 		sub: PaoloMori.did, //nbf: Defines the time before which the JWT MUST NOT be accepted for processing
 		nbf: 1562950282,
 		vc: {
 			'@context': ['https://www.w3.org/2018/credentials/v1'],
-			type: ['VerifiableCredential'],
+			type: ['VerifiableCredential','ProfessorCredential'],
 			credentialSubject: {
 				degree: {
-					type: 'MastersDegree',
-					name: 'Laurea Magistrale in Informatica'
+					type: hashedDegreeType.res,
+					name: hashedDegreeName.res
 				}
 			}
 		}
 	}
 
 	
-const researchVCPayload = {
-		sub: PaoloMori.did, //nbf: Defines the time before which the JWT MUST NOT be accepted for processing
-		nbf: 1562950282,
-		vc: {
-			'@context': ['https://www.w3.org/2018/credentials/v1'],
-			type: ['VerifiableCredential'],
-			credentialSubject: {
-				researcherAt: {
-					organization: 'CNR',
-					branch: 'SelfSovereignIdentity'
-				}
-			}
-		}
-	}
+// const researchVCPayload = {
+// 		sub: PaoloMori.did, //nbf: Defines the time before which the JWT MUST NOT be accepted for processing
+// 		nbf: 1562950282,
+// 		vc: {
+// 			'@context': ['https://www.w3.org/2018/credentials/v1'],
+// 			type: ['VerifiableCredential'],
+// 			credentialSubject: {
+// 				researcherAt: {
+// 					organization: 'CNR',
+// 					branch: 'SelfSovereignIdentity'
+// 				}
+// 			}
+// 		}
+// 	}
 
 	const options = {
 		header: {
@@ -118,7 +133,7 @@ const researchVCPayload = {
 		},
 	}
 	const resDegree = await createVCPerformance(degreeVCPayload, uni, options);
-	const resResearch = await createVCPerformance(researchVCPayload, uni, options);
+	//const resResearch = await createVCPerformance(researchVCPayload, uni, options);
 	// const verifiedVC = await verifyCredential(vcJwt, didResolver);
 	 console.log(resDegree.res);
 
@@ -128,7 +143,8 @@ const researchVCPayload = {
 		vp: {
 			'@context': ['https://www.w3.org/2018/credentials/v1'],
 			type: ['VerifiablePresentation'],
-			verifiableCredential: [resDegree.res, resResearch.res]
+			verifiableCredential: [resDegree.res],
+			disclosedAttributes : [degreeTypeDisclosure, degreeNameDisclosure] 
 		}
 	}
 
@@ -139,10 +155,11 @@ const researchVCPayload = {
 	console.log(resCreateVP.res);
 
 	// at this point Paolo Mori receives a VP request from library, so he provides the presentation of his VC and the library verifies it
-	const resVerifyVP = await verifyPresentationPerformance(resCreateVP.res, didResolver)
+	const resVerifyVP = await verifyPresentationPerformance(resCreateVP.res, didResolver);
 	console.log('\n');
 	console.log("==== VERIFIABLE PRESENTATION CREATED BY PAOLO MORI IS BEING VERIFIED BY LIBRARY =====");
 	console.log('\n');
+	const verifiedVP = resVerifyVP.res.verifiablePresentation;
 	console.log(resVerifyVP.res)
 
 	console.log('\n');
@@ -157,12 +174,14 @@ const researchVCPayload = {
 	console.log("==== VERIFIED VC =====");
 	console.log('\n');
 	const resVerifyVC = await verifyCredentialPerformance(unverifiedVC, didResolver);
-	console.log(resVerifyVC.res);
-	 console.log(resVerifyVC.res.didResolutionResult.didDocument.verificationMethod);
-
+	const verifiedVC = resVerifyVC.res.verifiableCredential;
+	
+	console.log(resVerifyVC.res.verifiableCredential.credentialSubject.degree);
+	console.log(resVerifyVC.res.didResolutionResult.didDocument.verificationMethod);
+	 const disclosedAttributeVerification = verifyAttributes(verifiedVC, verifiedVP);
 	 // PRINT PERFORMANCE RESULTS
 	 console.log(resDegree.time);
-	 console.log(resResearch.time);
+	//  console.log(resResearch.time);
 	 console.log(resCreateVP.time);
 	 console.log(resVerifyVP.time);
 	 console.log(resVerifyVC.time);
@@ -222,6 +241,7 @@ const verifyCredentialPerformance = async (jwt, resolver) => {
 	const verifyVCtime = "Verify VC took " + (end-start) + "ms"
 	return {res : result, time : verifyVCtime} ;
 }
+
 
 //actual function that starts executing and this will invoke all the other pieces of code
 
