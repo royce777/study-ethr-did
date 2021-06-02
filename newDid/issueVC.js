@@ -83,8 +83,16 @@ const test = async (accounts) => {
 	const didResolver = new Resolver.Resolver(ethrDidResolver);
 
 	// create VC issued by university to Paolo Mori
+
+	// hash claims 
 	const hashedDegreeType = hashAttributes('MastersDegree');
 	const hashedDegreeName = hashAttributes('Laurea Magistrale in Informatica');
+	const hashedProfessorClass = hashAttributes('Cryptography');
+	const hashedProfessorDepartment = hashAttributes('Computer Science');
+	const hashedProfessorYear = hashAttributes('3');
+
+	// issuer provides holder with data necessary to verify and selectively disclose attributes
+	// that have been hashed
 	const degreeTypeDisclosure = {
 		path : ['degree','type'],
 		clearValue : 'MastersDegree',
@@ -95,11 +103,33 @@ const test = async (accounts) => {
 		clearValue : 'Laurea Magistrale in Informatica',
 		nonce : hashedDegreeName.nonce
 	}
-	const degreeDisclosure = {
-		credentialID : 'http://unipi.it/fake-credentials/1',
-		attributes : [degreeNameDisclosure, degreeTypeDisclosure]
+	const professorClassDisclosure = {
+		path : ['professor', 'class'],
+		clearValue : 'Cryptography',
+		nonce : hashedProfessorClass.nonce
 	}
-	const degreeVCPayload = {
+	const professorDepartmentDisclosure = {
+		path : ['professor', 'department'],
+		clearValue : 'Computer Science',
+		nonce : hashedProfessorDepartment.nonce
+	}
+	const professorYearDisclosure = {
+		path : ['professor', 'year'],
+		clearValue : '3',
+		nonce : hashedProfessorYear.nonce
+	}
+	
+	// this object contains attributes that holder wants to reveal inside the credential
+	// with reference to the credential id, which is useful in case a single presentation (VP)
+	// contains multiple verifiable credentials, in this case Paolo Mori wants to reveal 
+	// only the fact that he is a Professor of Cryptography at the department of Computer Science
+	const professorDisclosure = {
+		credentialID : 'http://unipi.it/fake-credentials/1',
+		attributes : [professorClassDisclosure, professorDepartmentDisclosure]
+	}
+
+	// verifiable credentials with all claims hashed
+	const VCPayload = {
 		sub: PaoloMori.did, //nbf: Defines the time before which the JWT MUST NOT be accepted for processing
 		nbf: 1562950282,
 		vc: {
@@ -111,11 +141,11 @@ const test = async (accounts) => {
 					type: hashedDegreeType.res,
 					name: hashedDegreeName.res
 				},
-				researcherAt: {
-					organization: 'CNR',
-					branch: 'SelfSovereignIdentity'
-				}
-
+				professor: {
+					class: hashedProfessorClass.res,
+					department: hashedProfessorDepartment.res,
+					year : hashedProfessorYear.res
+				},
 			}
 		}
 	}
@@ -142,10 +172,10 @@ const test = async (accounts) => {
 			"alg": "ES256K-R"
 		},
 	}
-	const resDegree = await createVCPerformance(degreeVCPayload, uni, options);
+	const signedVC = await createVCPerformance(VCPayload, uni, options);
 	//const resResearch = await createVCPerformance(researchVCPayload, uni, options);
 	// const verifiedVC = await verifyCredential(vcJwt, didResolver);
-	 console.log(resDegree.res);
+	 console.log(signedVC.res);
 
 
 	// Paolo Mori must create a Verifiable Presentation in order to present the claim to the library
@@ -153,8 +183,8 @@ const test = async (accounts) => {
 		vp: {
 			'@context': ['https://www.w3.org/2018/credentials/v1'],
 			type: ['VerifiablePresentation'],
-			verifiableCredential: [resDegree.res],
-			disclosedAttributes : [degreeDisclosure] 
+			verifiableCredential: [signedVC.res],
+			disclosedAttributes : [professorDisclosure] 
 		}
 	}
 
@@ -190,7 +220,7 @@ const test = async (accounts) => {
 	// console.log(resVerifyVC.res.didResolutionResult.didDocument.verificationMethod);
 	const disclosedAttributeVerification = verifyAttributes(verifiedVCs, verifiedVP);
 	// PRINT PERFORMANCE RESULTS
-	console.log(resDegree.time);
+	console.log(signedVC.time);
 	//  console.log(resResearch.time);
 	 console.log(resCreateVP.time);
 	 console.log(resVerifyVP.time);
