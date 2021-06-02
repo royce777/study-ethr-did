@@ -95,11 +95,16 @@ const test = async (accounts) => {
 		clearValue : 'Laurea Magistrale in Informatica',
 		nonce : hashedDegreeName.nonce
 	}
+	const degreeDisclosure = {
+		credentialID : 'http://unipi.it/fake-credentials/1',
+		attributes : [degreeNameDisclosure, degreeTypeDisclosure]
+	}
 	const degreeVCPayload = {
 		sub: PaoloMori.did, //nbf: Defines the time before which the JWT MUST NOT be accepted for processing
 		nbf: 1562950282,
 		vc: {
 			'@context': ['https://www.w3.org/2018/credentials/v1'],
+			id : 'http://unipi.it/fake-credentials/1',
 			type: ['VerifiableCredential','ProfessorCredential'],
 			credentialSubject: {
 				degree: {
@@ -144,7 +149,7 @@ const test = async (accounts) => {
 			'@context': ['https://www.w3.org/2018/credentials/v1'],
 			type: ['VerifiablePresentation'],
 			verifiableCredential: [resDegree.res],
-			disclosedAttributes : [degreeTypeDisclosure, degreeNameDisclosure] 
+			disclosedAttributes : [degreeDisclosure] 
 		}
 	}
 
@@ -175,12 +180,12 @@ const test = async (accounts) => {
 	console.log('\n');
 	const resVerifyVC = await verifyCredentialPerformance(unverifiedVC, didResolver);
 	const verifiedVC = resVerifyVC.res.verifiableCredential;
-	
+	const verifiedVCs = [verifiedVC];
 	console.log(resVerifyVC.res.verifiableCredential.credentialSubject.degree);
 	console.log(resVerifyVC.res.didResolutionResult.didDocument.verificationMethod);
-	 const disclosedAttributeVerification = verifyAttributes(verifiedVC, verifiedVP);
-	 // PRINT PERFORMANCE RESULTS
-	 console.log(resDegree.time);
+	const disclosedAttributeVerification = verifyAttributes(verifiedVCs, verifiedVP);
+	// PRINT PERFORMANCE RESULTS
+	console.log(resDegree.time);
 	//  console.log(resResearch.time);
 	 console.log(resCreateVP.time);
 	 console.log(resVerifyVP.time);

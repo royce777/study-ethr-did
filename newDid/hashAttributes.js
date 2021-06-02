@@ -50,7 +50,6 @@ const randomString = (length, kind) => {
 	// for each claim the issuer uses a different nonce during hashing
 export const hashAttributes = (attribute, nonce = undefined ) => {
 	var tmp = md5(attribute);
-    console.log('######################################################################################### '+nonce);
     if(!nonce)
 	    nonce = randomString(8,'#aA');
 	tmp = tmp + ':' + nonce;
