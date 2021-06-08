@@ -1,21 +1,12 @@
 import Resolver from 'did-resolver'
 import getResolver from 'ethr-did-resolver'
-import { EthrDID } from 'ethr-did'
-import { computePublicKey } from '@ethersproject/signing-key'
-import { EdDSASigner } from 'did-jwt'
-import pkg, { verifyCredential } from 'did-jwt-vc';
-const { createVerifiableCredentialJwt, createVerifiablePresentationJwt, verifyPresentation } = pkg;
-import { createRequire } from 'module';
 import {hashAttributes} from './hashAttributes.js'
 import {verifyAttributes} from './verifyAttributes.js'
-import  nacl from 'tweetnacl';
-import {getTrufflePrivateKey, connect} from './networkSetup.js'
+import {connect} from './networkSetup.js'
 import { getStatusRegistry, createRevoker, revokeCredential, checkCredentialStatus} from './revokeCredentials.js'
+import {changeSigner} from './changeSigner.js'
+import {createDid, verifyCredentialPerformance, verifyPresentationPerformance, createVCPerformance, createVPPerformance} from './DID-VC-utils.js'
 
-
-const require = createRequire(import.meta.url);
-
-const { performance } = require('perf_hooks'); // performance suite for time measurement
 
 const mnemonic = 'family dress industry stage bike shrimp replace design author amateur reopen script';
 
@@ -30,27 +21,14 @@ const RevRegAddress = '0x1482aDFDC2A33983EE69F9F8e4F852c467688Ea0';
 
 //function where the creation of an identity will be tested
 const test = async (accounts) => {
+
 	// create DID of the interacting subjects
-	const uni = await createDid(DIDRegAddress, accounts[0], 0);
-	
-	// university wants to add a new signing key and publish it to its attributes on the EthrDIDRegistry by creating a signingDelegate
+	const uni = await createDid(DIDRegAddress, 0, mnemonic, provider);
+	const PaoloMori = await createDid(DIDRegAddress, 1, mnemonic, provider);
+	const library = await createDid(DIDRegAddress, 2, mnemonic, provider);
 
-	// first save old signer function
-	// const oldSigner = uni.signer;
-	//create new keypair and publish it to EthrDIDRegistry
-	//  const keypair = EthrDID.createKeyPair('0x539');
-    // const keypair = nacl.sign.keyPair();
-    // console.log(keypair.secretKey)
-    // console.log(keypair.publicKey)
-    // await uni.setAttribute('did/pub/Ed25519/veriKey/base64', keypair.publicKey);
-	// uni.signer = EdDSASigner(keypair.secretKey);
-
-
-	//now university tries to update its signer function to be able to sign the V-Credential with its new key
-
-	//creating holder and verifier DIDs
-	const PaoloMori = await createDid(DIDRegAddress, accounts[1], 1);
-	const library = await createDid(DIDRegAddress, accounts[2], 2);
+	// let us add a Ed25519 signer to university DID
+	const oldSigner = await changeSigner(uni,'ES256K-R');
 
 	// create the DID resolver 
 	const ethrDidResolver = getResolver.getResolver(
@@ -139,7 +117,6 @@ const test = async (accounts) => {
 	const optionsEdDSA = {
 		header: {
 			"typ": "JWT",
-			//"alg": "ES256K-R"
             "alg" : "EdDSA"
 		},
 	}
@@ -150,8 +127,6 @@ const test = async (accounts) => {
 		},
 	}
 	const signedVC = await createVCPerformance(VCPayload, uni, optionsES256K);
-	//const resResearch = await createVCPerformance(researchVCPayload, uni, options);
-	// const verifiedVC = await verifyCredential(vcJwt, didResolver);
 	 console.log(signedVC.res);
 
 
@@ -206,66 +181,11 @@ const test = async (accounts) => {
 	// PRINT PERFORMANCE RESULTS
 	console.log(signedVC.time);
 	//  console.log(resResearch.time);
-	 console.log(resCreateVP.time);
-	 console.log(resVerifyVP.time);
-	 console.log(resVerifyVC.time);
-
-
-
+	console.log(resCreateVP.time);
+	console.log(resVerifyVP.time);
+	console.log(resVerifyVC.time);
 
 }
-
-//function to create and return the object used to manage a DID
-const createDid = async (DIDRegAddress, accountAddress, index, chainId = '0x539') => {
-	return getTrufflePrivateKey(mnemonic, index)
-		.then(privateKey => {
-			const publicKey = computePublicKey(privateKey, true);
-			const identifier = `did:ethr:${chainId}:${publicKey}`;
-			const signer = provider.getSigner(index);
-			const conf = {
-				txSigner: signer,
-				privateKey: privateKey,
-				identifier: identifier,
-				registry: DIDRegAddress,
-				chainNameOrId: chainId,
-				provider
-			};
-			return new EthrDID(conf);
-		})
-
-}
-
-const createVCPerformance = async (payload, did, options) => {
-	let start = performance.now();
-	const jwt = await createVerifiableCredentialJwt(payload, did, options);
-	let end = performance.now();
-	const createVCtime = "Create VC took " + (end-start) + "ms"
-	return {res : jwt, time : createVCtime};
-}
-const createVPPerformance =  async (payload, did, options) => {
-	let start = performance.now();
-	const jwt = await createVerifiablePresentationJwt(payload, did, options);
-	let end = performance.now();
-	const createVPtime = "Create VP took " + (end-start) + "ms"
-	return {res : jwt, time : createVPtime} ;
-}
-
-const verifyPresentationPerformance = async (jwt, resolver) => {
-	let start = performance.now();
-	const result = await verifyPresentation(jwt, resolver);
-	let end = performance.now();
-	const verifyVPtime = "Verify VP took " + (end-start) + "ms"
-	return {res : result, time : verifyVPtime};
-}
-
-const verifyCredentialPerformance = async (jwt, resolver) => {
-	let start = performance.now();
-	const result = await verifyCredential(jwt, resolver);
-	let end = performance.now();
-	const verifyVCtime = "Verify VC took " + (end-start) + "ms"
-	return {res : result, time : verifyVCtime} ;
-}
-
 
 //actual function that starts executing and this will invoke all the other pieces of code
 
