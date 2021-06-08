@@ -174,7 +174,6 @@ const test = async (accounts) => {
 	const optionsEdDSA = {
 		header: {
 			"typ": "JWT",
-			//"alg": "ES256K-R"
             "alg" : "EdDSA"
 		},
 	}

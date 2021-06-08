@@ -1,73 +1,32 @@
 import Resolver from 'did-resolver'
 import getResolver from 'ethr-did-resolver'
 import { EthrDID } from 'ethr-did'
-import { ethers } from 'ethers'
-import { sign } from 'ethjs-signer'
 import { computePublicKey } from '@ethersproject/signing-key'
 import { EdDSASigner } from 'did-jwt'
 import pkg, { verifyCredential } from 'did-jwt-vc';
 const { createVerifiableCredentialJwt, createVerifiablePresentationJwt, verifyPresentation } = pkg;
-import bip39 from 'bip39'
 import { createRequire } from 'module';
 import {hashAttributes} from './hashAttributes.js'
 import {verifyAttributes} from './verifyAttributes.js'
 import  nacl from 'tweetnacl';
-
-//SR: status registry 
-import { EthrStatusRegistry, EthrCredentialRevoker } from 'ethr-status-registry'
-import { Status } from 'credential-status'
+import {getTrufflePrivateKey, connect} from './networkSetup.js'
+import { getStatusRegistry, createRevoker, revokeCredential, checkCredentialStatus} from './revokeCredentials.js'
 
 
 const require = createRequire(import.meta.url);
-const hdkey = require('ethereumjs-wallet/hdkey')
-//import wallet from 'ethereumjs-wallet'
 
 const { performance } = require('perf_hooks'); // performance suite for time measurement
 
-
 const mnemonic = 'family dress industry stage bike shrimp replace design author amateur reopen script';
 
-//function that retrieves private keys of Truffle accounts
-// return value : Promise
-const getTrufflePrivateKey = (mnemonic, index) => {
-	if (index < 0 || index > 9) throw new Error('please provide correct truffle account index')
-	return bip39.mnemonicToSeed(mnemonic).then(seed => {
-		const hdk = hdkey.fromMasterSeed(seed);
-		const addr_node = hdk.derivePath(`m/44'/60'/0'/0/${index}`); //m/44'/60'/0'/0/0 is derivation path for the first account. m/44'/60'/0'/0/1 is the derivation path for the second account and so on
-		//const addr = addr_node.getWallet().getAddressString(); //check that this is the same with the address that ganache list for the first account to make sure the derivation is correct
-		const privKey = addr_node.getWallet().getPrivateKey();
-		return privKey;
-	}).catch(error => console.log('getTrufflePrivateKey ERROR : ' + error));
-}
-
-
-
-//setup the provider 
-console.log('Connecting to provider...');
-const Web3HttpProvider = require('web3-providers-http')
-// ...
-const web3provider = new Web3HttpProvider('http://localhost:7545')
-const provider = new ethers.providers.Web3Provider(web3provider)
-//const provider = new ethers.providers.JsonRpcProvider('http://localhost:9545');
-
-// get accounts provided by Truffle, with respective private keys
-
-
-console.log('Connected to the provider');
+// connect to the local Ethereum network
+const provider = connect();
 
 //contract address of the DID registry
 const DIDRegAddress = '0x2130c40ECCeF70DfA76645436c04dbA54dCeabad';
 
 //contract address of the Revocation Registry
 const RevRegAddress = '0x1482aDFDC2A33983EE69F9F8e4F852c467688Ea0';
-
-//SR : status register interaction setup
-const status = new Status({
-    ...new EthrStatusRegistry({networks: [
-		{ name: 'development', rpcUrl: 'http://127.0.0.1:7545' }]}).asStatusMethod,
-})
-
-
 
 //function where the creation of an identity will be tested
 const test = async (accounts) => {
@@ -176,21 +135,6 @@ const test = async (accounts) => {
 		}
 	}
 
-	
-// const researchVCPayload = {
-// 		sub: PaoloMori.did, //nbf: Defines the time before which the JWT MUST NOT be accepted for processing
-// 		nbf: 1562950282,
-// 		vc: {
-// 			'@context': ['https://www.w3.org/2018/credentials/v1'],
-// 			type: ['VerifiableCredential'],
-// 			credentialSubject: {
-// 				researcherAt: {
-// 					organization: 'CNR',
-// 					branch: 'SelfSovereignIdentity'
-// 				}
-// 			}
-// 		}
-// 	}
 
 	const optionsEdDSA = {
 		header: {
@@ -251,20 +195,12 @@ const test = async (accounts) => {
 	const verifiedVCs = [verifiedVC];
 	console.log(resVerifyVC.res);
 
-	// let's suppose that the university revokes the credential
-	var uniPrivateKey = await getTrufflePrivateKey(mnemonic,0);
-	uniPrivateKey ='0x' + uniPrivateKey.toString('hex')
-	console.log(uniPrivateKey)
-	const ethSigner = (rawTx, cb) => cb(null, sign(rawTx, uniPrivateKey))
-	const revoker = new EthrCredentialRevoker({networks: [
-		{ name: 'development', rpcUrl: 'http://127.0.0.1:7545' }]})
-	const txHash = await revoker.revoke(signedVC.res, ethSigner)
-
-
-	const DIDdoc = await didResolver.resolve(uni.did);
-	console.log(DIDdoc)
-	const VCstatus = await status.checkStatus(signedVC.res, DIDdoc.didDocument);
-	console.log("==== VC STATUS CHECK RESULT ==== \n" + JSON.stringify(VCstatus));
+	// verify whether the credential is revoked 
+	const statusRegistry = getStatusRegistry('development', 'http://localhost:7545');
+	const revoker = createRevoker('development', 'http://localhost:7545');
+	const revocationTxHash = await revokeCredential(mnemonic,0,revoker, signedVC.res);
+	const credentialStatus = await checkCredentialStatus(statusRegistry, resVerifyVC.res.jwt, uni.did, didResolver);
+	console.log(credentialStatus);
 	 console.log(resVerifyVC.res.didResolutionResult.didDocument.verificationMethod);
 	const disclosedAttributeVerification = verifyAttributes(verifiedVCs, verifiedVP);
 	// PRINT PERFORMANCE RESULTS
