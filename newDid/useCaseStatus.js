@@ -2,6 +2,7 @@ import Resolver from 'did-resolver'
 import getResolver from 'ethr-did-resolver'
 import { EthrDID } from 'ethr-did'
 import { ethers } from 'ethers'
+import { sign } from 'ethjs-signer'
 import { computePublicKey } from '@ethersproject/signing-key'
 import { EdDSASigner } from 'did-jwt'
 import pkg, { verifyCredential } from 'did-jwt-vc';
@@ -13,7 +14,7 @@ import {verifyAttributes} from './verifyAttributes.js'
 import  nacl from 'tweetnacl';
 
 //SR: status registry 
-import { EthrStatusRegistry } from 'ethr-status-registry'
+import { EthrStatusRegistry, EthrCredentialRevoker } from 'ethr-status-registry'
 import { Status } from 'credential-status'
 
 
@@ -79,11 +80,11 @@ const test = async (accounts) => {
 	// const oldSigner = uni.signer;
 	//create new keypair and publish it to EthrDIDRegistry
 	//  const keypair = EthrDID.createKeyPair('0x539');
-    const keypair = nacl.sign.keyPair();
-    console.log(keypair.secretKey)
-    console.log(keypair.publicKey)
-    await uni.setAttribute('did/pub/Ed25519/veriKey/base64', keypair.publicKey);
-	uni.signer = EdDSASigner(keypair.secretKey);
+    // const keypair = nacl.sign.keyPair();
+    // console.log(keypair.secretKey)
+    // console.log(keypair.publicKey)
+    // await uni.setAttribute('did/pub/Ed25519/veriKey/base64', keypair.publicKey);
+	// uni.signer = EdDSASigner(keypair.secretKey);
 
 
 	//now university tries to update its signer function to be able to sign the V-Credential with its new key
@@ -204,7 +205,7 @@ const test = async (accounts) => {
 			"alg": "ES256K-R"
 		},
 	}
-	const signedVC = await createVCPerformance(VCPayload, uni, optionsEdDSA);
+	const signedVC = await createVCPerformance(VCPayload, uni, optionsES256K);
 	//const resResearch = await createVCPerformance(researchVCPayload, uni, options);
 	// const verifiedVC = await verifyCredential(vcJwt, didResolver);
 	 console.log(signedVC.res);
@@ -249,9 +250,20 @@ const test = async (accounts) => {
 	const verifiedVC = resVerifyVC.res.verifiableCredential;
 	const verifiedVCs = [verifiedVC];
 	console.log(resVerifyVC.res);
+
+	// let's suppose that the university revokes the credential
+	var uniPrivateKey = await getTrufflePrivateKey(mnemonic,0);
+	uniPrivateKey ='0x' + uniPrivateKey.toString('hex')
+	console.log(uniPrivateKey)
+	const ethSigner = (rawTx, cb) => cb(null, sign(rawTx, uniPrivateKey))
+	const revoker = new EthrCredentialRevoker({networks: [
+		{ name: 'development', rpcUrl: 'http://127.0.0.1:7545' }]})
+	const txHash = await revoker.revoke(signedVC.res, ethSigner)
+
+
 	const DIDdoc = await didResolver.resolve(uni.did);
-	console.log("========= RESOLVED DID DOC ========= \n" + JSON.stringify(DIDdoc));
-	const VCstatus = await status.checkStatus(resVerifyVC.res.jwt, resVerifyVC.res.didResolutionResult.didDocument);
+	console.log(DIDdoc)
+	const VCstatus = await status.checkStatus(signedVC.res, DIDdoc.didDocument);
 	console.log("==== VC STATUS CHECK RESULT ==== \n" + JSON.stringify(VCstatus));
 	 console.log(resVerifyVC.res.didResolutionResult.didDocument.verificationMethod);
 	const disclosedAttributeVerification = verifyAttributes(verifiedVCs, verifiedVP);
