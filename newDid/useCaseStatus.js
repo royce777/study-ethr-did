@@ -6,6 +6,7 @@ import {connect} from './networkSetup.js'
 import { getStatusRegistry, createRevoker, revokeCredential, checkCredentialStatus} from './revokeCredentials.js'
 import {changeSigner} from './changeSigner.js'
 import {createDid, verifyCredentialPerformance, verifyPresentationPerformance, createVCPerformance, createVPPerformance} from './DID-VC-utils.js'
+import { generateRandomVC } from './generateRandomVC.js'
 
 
 const mnemonic = 'family dress industry stage bike shrimp replace design author amateur reopen script';
@@ -184,7 +185,6 @@ const test = async (accounts) => {
 	console.log(resCreateVP.time);
 	console.log(resVerifyVP.time);
 	console.log(resVerifyVC.time);
-
 }
 
 //actual function that starts executing and this will invoke all the other pieces of code
