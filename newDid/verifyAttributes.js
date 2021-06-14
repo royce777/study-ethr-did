@@ -7,16 +7,16 @@ export const verifyAttributes = (VCs,VP) => {
         var verified = 0;
         if(claims && disclosedAttributes){
             disclosedAttributes.forEach(element => {
-                if(element.credentialID === credential.vc.id) {
+                if(element.credentialId === credential.vc.id) {
                     console.log('===SELECTIVE DISCLOSURE=== Verifying disclosed attributes of credential : ' + credential.vc.id);
-                    var attributes = element.attributes;
+                    var attributes = element.claims;
                     attributes.forEach(element => {
                         var {obj, propToVerify} = checkPath(element.path, claims);
                         var propertyPath = element.path.join('->');
                         if (propToVerify) {
-                            console.log('===SELECTIVE DISCLOSURE=== Verifying attribute : ' + propertyPath + " with value : " + propToVerify);
+                            //console.log('===SELECTIVE DISCLOSURE=== Verifying attribute : ' + propertyPath + " with value : " + propToVerify);
                             var rehashedAttribute = hashAttributes(element.clearValue, element.nonce);
-                            console.log('===SELECTIVE DISCLOSURE=== Recalculated hash is : ' + rehashedAttribute.res);
+                            //console.log('===SELECTIVE DISCLOSURE=== Recalculated hash is : ' + rehashedAttribute.res);
                             if(rehashedAttribute.res === propToVerify)
                                 verified ++ ;
                             else

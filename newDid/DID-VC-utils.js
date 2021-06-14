@@ -58,3 +58,32 @@ export const verifyCredentialPerformance = async (jwt, resolver) => {
 	const verifyVCtime = "Verify VC took " + (end-start) + "ms"
 	return {res : result, time : verifyVCtime} ;
 }
+
+export const createVP = async (VCs, claimsDisclosure, did, alg) => {
+	let options = undefined;
+	const vpPayload = {
+		vp: {
+			'@context': ['https://www.w3.org/2018/credentials/v1'],
+			type: ['VerifiablePresentation'],
+			verifiableCredential: VCs,
+			disclosedAttributes : claimsDisclosure 
+		}
+	}
+	const optionsEdDSA = {
+		header: {
+			"typ": "JWT",
+			"alg" : "EdDSA"
+		},
+	}
+	const optionsES256K = {
+		header: {
+			"typ": "JWT",
+			"alg": "ES256K-R"
+		},
+	}
+	if(alg === 'EdDSA') options = optionsEdDSA
+	else if(alg === 'ES256K-R') options = optionsES256K;
+	else throw new Error('wrong algorithm');
+	const result = await createVerifiablePresentationJwt(vpPayload, did, options);
+	return result;
+}
